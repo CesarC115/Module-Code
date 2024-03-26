@@ -24,7 +24,7 @@ IRDecoder decoder(IR_DETECTOR_PIN);
 //Chassis chassis(7,1440,14.7);
 
 // TODO, Section 6.2: Adjust parameters to better match actual motion
-Chassis chassis(7,1440,14);
+Chassis chassis(7,1440,13.2);
 
 // A helper function for debugging
 #define LED_PIN 13
@@ -65,7 +65,10 @@ void setup()
   // TODO, Section 4.2: Initialize the chassis (which also initializes the motors)
   chassis.init();
   // TODO, Section 5.1: Adjust the PID coefficients
-  chassis.setMotorPIDcoeffs(5,0.1);
+  chassis.setMotorPIDcoeffs(7,1);
+  //Setup the Line Sensors
+  pinMode(LEFT_LINE_SENSE, INPUT);  //A3
+  pinMode(RIGHT_LINE_SENSE, INPUT); //A4
   idle();
 
   // Initializes the IR decoder
@@ -155,8 +158,14 @@ void loop()
     case ROBOT_DRIVE_FOR: 
       //Printing Speed of Wheels
      // chassis.printSpeeds();
+     chassis.printEncoderCounts();
+     //Printing the Line Sensors values
+     int leftLineSensorReading = analogRead(LEFT_LINE_SENSE);
+     int rightLineSensorReading = analogRead(RIGHT_LINE_SENSE);
       
-
+      Serial.print(leftLineSensorReading);
+      Serial.print('\t'); //print a TAB character to make the output prettier
+      Serial.println(rightLineSensorReading);
       if(keyPress == ENTER_SAVE){
         idle();
         Serial.print("Idle key pressed");
