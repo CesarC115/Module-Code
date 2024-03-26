@@ -102,16 +102,44 @@ void handleLineFollow(int speed){
 
   //Define error between sensors
   int error = leftLine - rightLine;
-  float turnEffort = error * 0.3; //Error * K_p
+  
+  //Error gain
+  float Kp = 0.1;
+  float KGain = Kp;
+
+  //Integral gain
+  float Ki = 0.007;
+  float integral = 0;
+  integral += error;
+
+  //Derivative gain
+  const float Kd = 0.05;
+  int prevError = 0;
+  int derivative = error - prevError;
+
+  //NonLinear Error gain for very sharp turns
+  if(abs(error) > 150) {
+    KGain = Kp * 3.0;
+  }
+
+  //Reset integral on direction change
+  if(error*prevError < 0){
+    integral = 0;
+  }
+
+  //Calculate turn effor with Kp and Kd
+  float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
+  //Update previous error
+  prevError = error;
 
   //Increase effort if error is large
-  if(error > 50) turnEffort = error * 0.5;
-  if(error > 75) turnEffort = error * 0.6;
-  if(error > 100) turnEffort = error * 0.9;
-  if(error > 125) turnEffort = error * 1.0; 
-  if(error > 150) turnEffort = error * 1.0;
-  if(error > 175) turnEffort = error * 1.1;
-  if(error > 200) turnEffort = error * 1.2;  
+  // if(error > 50) turnEffort = error * 0.5;
+  // if(error > 75) turnEffort = error * 0.6;
+  // if(error > 100) turnEffort = error * 0.9;
+  // if(error > 125) turnEffort = error * 1.0; 
+  // if(error > 150) turnEffort = error * 1.0;
+  // if(error > 175) turnEffort = error * 1.1;
+  // if(error > 200) turnEffort = error * 1.2;  
   //chassis.setTwist(speed, -turnEffort);
 
   //turnEffort = constrain(turnEffort, -100, 100);
