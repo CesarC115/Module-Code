@@ -10,6 +10,8 @@
 #include <IRdecoder.h>
 #include <ir_codes.h>
 #include <Chassis.h>
+#include <math.h>
+#include <vector.h>
 
 #define sensor0 A0
 #define sensor1 A1
@@ -20,7 +22,7 @@ void handleMotionComplete();
 
 // Sets up the IR receiver/decoder object
 const uint8_t IR_DETECTOR_PIN = 1;
-volatile int baseSpeed = 20;
+volatile int baseSpeed = 10;
 unsigned long previousTime = 0;
 
 IRDecoder decoder(IR_DETECTOR_PIN);
@@ -123,6 +125,11 @@ void beginLineFollowing(){
   robotState = ROBOT_LINING;
 }
 
+  //Save error history in vector
+  const int ERR_HISTORY_SIZE = 10;
+  int errorHistory[ERR_HISTORY_SIZE];
+  int errorHistoryIndex = 0;
+
 //Function to handle the Line Following
 void handleLineFollow(int speed){
   
@@ -138,9 +145,21 @@ void handleLineFollow(int speed){
   //int Analog5 = analogRead(sensor5); //
   //Define error between sensors
   int error = Analog2 - Analog3;
+
+  errorHistory[errorHistoryIndex] = error;
+  errorHistoryIndex = (errorHistoryIndex + 1) % ERR_HISTORY_SIZE;
+
+  //Calculate average error from history
+  float avgError = 0.0;
+  long sum = 0;
+  for(int i=0; i<ERR_HISTORY_SIZE; i++){
+    sum += errorHistory[i];
+  }
+
+  avgError = (float)sum / ERR_HISTORY_SIZE;
   
   //Error
-  float Kp = 0.9;
+  float Kp = 0.6;
   // float KGain = Kp;
 
   // //Integral
@@ -153,12 +172,23 @@ void handleLineFollow(int speed){
   // int prevError = 0;
   // int derivative = error - prevError;
 
-  // Additional gain for sharp turns (adaptive control)
-  const int MAX_EXPECTED_ERROR = 1000;
-  float threshold = 0.7 * MAX_EXPECTED_ERROR;
-  if(abs(error) > threshold) {
-    Kp *= 1.2;    
+  //SHAR TURNS CONTROL
+  if(abs(error) > 5*avgError){
+    Kp *= 1.1;
   }
+  if(abs(error) > 6*avgError){
+    Kp *= 1.2;
+  }
+  if(abs(error) > 7*avgError){
+    Kp *= 1.3;
+  }
+
+  // Additional gain for sharp turns (adaptive control)
+  // const int MAX_EXPECTED_ERROR = 1000;
+  // float threshold = 0.7 * MAX_EXPECTED_ERROR;
+  // if(abs(error) > threshold) {
+  //   Kp *= 1.3;    
+  // }
 
   // //Reset integral on direction change
   // if(error*prevError < 0){
