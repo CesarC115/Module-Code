@@ -123,6 +123,9 @@ void handleLineFollow(int speed){
   
   uint16_t positionLine = qtr.readLineBlack(sensorValues);
 
+  uint16_t center = SensorCount/2;
+  uint16_t error = positionLine - center;
+
   //Read line sensors
   int leftLine = analogRead(LEFT_LINE_SENSE); //A3
   int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
@@ -132,42 +135,45 @@ void handleLineFollow(int speed){
   // int A2 = analogRead(A2);
   // int A5 = analogRead(A5);
   //Define error between sensors
-  int error = leftLine - rightLine;
+  //int error = leftLine - rightLine;
   
   //Error
    float Kp = 0.01;
-  float KGain = Kp;
+  // float KGain = Kp;
 
-  //Integral
-  float Ki = 0.007;
-  float integral = 0;
-  integral += error;
+  // //Integral
+  // float Ki = 0.007;
+  // float integral = 0;
+  // integral += error;
 
-  //Derivative
-  const float Kd = 0.05;
-  int prevError = 0;
-  int derivative = error - prevError;
+  // //Derivative
+  // const float Kd = 0.05;
+  // int prevError = 0;
+  // int derivative = error - prevError;
 
-  //NonLinear Error gain for very sharp turns
-  if(abs(error) > 150) {
-    KGain = Kp * 3.0;
-  }
+  // //NonLinear Error gain for very sharp turns
+  // if(abs(error) > 150) {
+  //   KGain = Kp * 3.0;
+  // }
 
-  //Reset integral on direction change
-  if(error*prevError < 0){
-    integral = 0;
-  }
+  // //Reset integral on direction change
+  // if(error*prevError < 0){
+  //   integral = 0;
+  // }
 
   //Calculate turn effor with Kp and Kd
-  float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
-  //float turnEffort = Kp * error;
+  //float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
+  float turnEffort = Kp * error;
   //Update previous error
-  prevError = error;
+  //prevError = error;
 
-  //On black line
-  if(leftLine >= 300 && rightLine >= 300){
+  if(positionLine >= 0 && positionLine <= SensorCount){
     chassis.setTwist(speed, turnEffort);
   }
+  // //On black line
+  // if(leftLine >= 300 && rightLine >= 300){
+  //   chassis.setTwist(speed, turnEffort);
+  // }
   //On not black Line
   // if(leftLine < 200 && rightLine < 200){
   //   chassis.setTwist(speed, turnEffort);
