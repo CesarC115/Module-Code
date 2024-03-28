@@ -22,7 +22,7 @@ IRDecoder decoder(IR_DETECTOR_PIN);
 Chassis chassis(7,1440,13.2);
 
 QTRSensors qtr;
-const uint8_t SensorCount = 2;    // number of sensors used
+const uint8_t SensorCount = 5;    // number of sensors used
 uint16_t sensorValues[SensorCount];
 void QTR_init();
 
@@ -40,8 +40,10 @@ ROBOT_STATE robotState = ROBOT_IDLE;
 void QTR_init(){
   Serial.print("QTR initializing...");
   qtr.setTypeRC(); // Reflectance mode
-  qtr.setSensorPins( (const uint8_t[]){A3,A4}, SensorCount);
+  qtr.setSensorPins( (const uint8_t[]){A0,A1,A2,A3,A4}, SensorCount);
   qtr.setEmitterPin(A3);
+
+  //qtr.setSamplesPerSensor(10);  ?
 
   for(int i=0; i< 400 ; i++){
     qtr.calibrate();
@@ -123,8 +125,8 @@ void handleLineFollow(int speed){
   
   uint16_t positionLine = qtr.readLineBlack(sensorValues);
 
-  uint16_t center = SensorCount/2;
-  uint16_t error = positionLine - center;
+  int center = SensorCount/2;
+  int error = positionLine - center;
 
   //Read line sensors
   int leftLine = analogRead(LEFT_LINE_SENSE); //A3
