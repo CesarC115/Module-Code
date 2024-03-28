@@ -6,7 +6,7 @@
 
 #include <Arduino.h>
 #include <wpi-32u4-lib.h>
-
+#include <QTRSensors.h>
 #include <IRdecoder.h>
 #include <ir_codes.h>
 #include <Chassis.h>
@@ -15,11 +15,16 @@ void handleMotionComplete();
 
 // Sets up the IR receiver/decoder object
 const uint8_t IR_DETECTOR_PIN = 1;
-volatile int baseSpeed = 10;
+volatile int baseSpeed = 20;
 unsigned long previousTime = 0;
 
 IRDecoder decoder(IR_DETECTOR_PIN);
 Chassis chassis(7,1440,13.2);
+
+QTRSensors qtr;
+const uint8_t SensorCount = 2;    // number of sensors used
+uint16_t sensorValues[SensorCount];
+void QTR_init();
 
 // A helper function for debugging
 #define LED_PIN 13
@@ -31,6 +36,19 @@ void setLED(bool value)
 // Defines the robot states
 enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE};
 ROBOT_STATE robotState = ROBOT_IDLE;
+
+void QTR_init(){
+  Serial.print("QTR initializing...");
+  qtr.setTypeRC(); // Reflectance mode
+  qtr.setSensorPins( (const uint8_t[]){A3,A4}, SensorCount);
+  qtr.setEmitterPin(A3);
+
+  for(int i=0; i< 400 ; i++){
+    qtr.calibrate();
+  }
+
+  Serial.print("Calibrated ");
+}
 
 // idle() stops the motors
 void idle(void)
@@ -51,12 +69,19 @@ void setup()
 
   //Init motors
   chassis.init();
-  chassis.setMotorPIDcoeffs(5,0.1);
+  chassis.setMotorPIDcoeffs(1.1,0.05);
+  //chassis.setMotorEfforts(63, 50);
+  
+  
 
 
   //Setup the Line Sensors
+  pinMode(A0, INPUT);
+  pinMode(A1, INPUT);
+  pinMode(A2, INPUT);
   pinMode(LEFT_LINE_SENSE, INPUT);  //A3
   pinMode(RIGHT_LINE_SENSE, INPUT); //A4
+  pinMode(A5, INPUT);
   idle();
 
   // Initializes the IR decoder
@@ -95,24 +120,30 @@ void beginLineFollowing(){
 
 //Function to handle the Line Following
 void handleLineFollow(int speed){
+  
+  uint16_t positionLine = qtr.readLineBlack(sensorValues);
 
   //Read line sensors
-  int leftLine = analogRead(LEFT_LINE_SENSE);
-  int rightLine = analogRead(RIGHT_LINE_SENSE);
+  int leftLine = analogRead(LEFT_LINE_SENSE); //A3
+  int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
 
+  // int A0 = analogRead(A0);
+  // int A1 = analogRead(A1);
+  // int A2 = analogRead(A2);
+  // int A5 = analogRead(A5);
   //Define error between sensors
   int error = leftLine - rightLine;
   
-  //Error gain
-  float Kp = 0.1;
+  //Error
+   float Kp = 0.01;
   float KGain = Kp;
 
-  //Integral gain
+  //Integral
   float Ki = 0.007;
   float integral = 0;
   integral += error;
 
-  //Derivative gain
+  //Derivative
   const float Kd = 0.05;
   int prevError = 0;
   int derivative = error - prevError;
@@ -129,29 +160,18 @@ void handleLineFollow(int speed){
 
   //Calculate turn effor with Kp and Kd
   float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
+  //float turnEffort = Kp * error;
   //Update previous error
   prevError = error;
 
-  //Increase effort if error is large
-  // if(error > 50) turnEffort = error * 0.5;
-  // if(error > 75) turnEffort = error * 0.6;
-  // if(error > 100) turnEffort = error * 0.9;
-  // if(error > 125) turnEffort = error * 1.0; 
-  // if(error > 150) turnEffort = error * 1.0;
-  // if(error > 175) turnEffort = error * 1.1;
-  // if(error > 200) turnEffort = error * 1.2;  
-  //chassis.setTwist(speed, -turnEffort);
-
-  //turnEffort = constrain(turnEffort, -100, 100);
-
   //On black line
-  if(leftLine >= 800 && rightLine >= 800){
-    chassis.setTwist(speed, -turnEffort);
+  if(leftLine >= 300 && rightLine >= 300){
+    chassis.setTwist(speed, turnEffort);
   }
   //On not black Line
-  if(leftLine < 800 && rightLine < 800){
-    chassis.setTwist(speed, -turnEffort);
-  }
+  // if(leftLine < 200 && rightLine < 200){
+  //   chassis.setTwist(speed, turnEffort);
+  // }
 
   //Follow the black line
   // if(leftLine >= 800 && rightLine >= 800){
@@ -184,19 +204,30 @@ void handleLineFollow(int speed){
 
   //   }
     
- 
+      // Serial.print("A0: ");
+      // Serial.print(A0);
+      // Serial.print("\t");
+      // Serial.print("A1: ");
+      // Serial.print(A1);
+      // Serial.print("\t");
+      // Serial.print("A2: ");
+      // Serial.print(A2);
+      // Serial.print("\t");
       Serial.print("Left Line: ");
       Serial.print(leftLine);
-      Serial.print("\t\t");
+      Serial.print("\t");
       Serial.print("Right Line: ");
       Serial.print(rightLine);
-      Serial.print("\t");
-      Serial.print("\t");
-      Serial.print("Error: ");
-      Serial.print(error);
-      Serial.print("\t");
-      Serial.print("tunrnEffort: ");
-      Serial.println(turnEffort);
+      // Serial.print("\t");
+      // Serial.print("A5: ");
+      // Serial.print(A5);
+      Serial.println("\t");
+      // Serial.print("Error: ");
+      // Serial.print(error);
+      // Serial.print("\t");
+      // Serial.print("tunrnEffort: ");
+      // Serial.println(turnEffort);
+      //chassis.printEncoderCounts();
 
                     //OUTER SENSORS DATA
     //        LIGHT                   Dark
