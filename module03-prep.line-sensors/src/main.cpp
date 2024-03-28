@@ -126,7 +126,7 @@ void beginLineFollowing(){
 //Function to handle the Line Following
 void handleLineFollow(int speed){
   
-  uint16_t positionLine = qtr.readLineBlack(sensorValues);
+  //uint16_t positionLine = qtr.readLineBlack(sensorValues);
 
   //Read line sensors
   int leftLine = analogRead(LEFT_LINE_SENSE); //A3
@@ -140,34 +140,34 @@ void handleLineFollow(int speed){
   int error = leftLine - rightLine;
   
   //Error
-   float Kp = 0.01;
-  float KGain = Kp;
+  float Kp = 0.01;
+  // float KGain = Kp;
 
-  //Integral
-  float Ki = 0.007;
-  float integral = 0;
-  integral += error;
+  // //Integral
+  // float Ki = 0.007;
+  // float integral = 0;
+  // integral += error;
 
-  //Derivative
-  const float Kd = 0.05;
-  int prevError = 0;
-  int derivative = error - prevError;
+  // //Derivative
+  // const float Kd = 0.05;
+  // int prevError = 0;
+  // int derivative = error - prevError;
 
-  //NonLinear Error gain for very sharp turns
-  if(abs(error) > 150) {
-    KGain = Kp * 3.0;
-  }
+  // //NonLinear Error gain for very sharp turns
+  // if(abs(error) > 150) {
+  //   KGain = Kp * 3.0;
+  // }
 
-  //Reset integral on direction change
-  if(error*prevError < 0){
-    integral = 0;
-  }
+  // //Reset integral on direction change
+  // if(error*prevError < 0){
+  //   integral = 0;
+  // }
 
   //Calculate turn effor with Kp and Kd
-  float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
-  //float turnEffort = Kp * error;
+  //float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
+  float turnEffort = Kp * error;
   //Update previous error
-  prevError = error;
+  //prevError = error;
 
   //On black line
   if(leftLine >= 300 && rightLine >= 300){
