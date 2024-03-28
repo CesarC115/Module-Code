@@ -11,6 +11,11 @@
 #include <ir_codes.h>
 #include <Chassis.h>
 
+#define sensor0 A0
+#define sensor1 A1
+#define sensor2 A2
+#define sensor5 A5
+
 void handleMotionComplete(); 
 
 // Sets up the IR receiver/decoder object
@@ -72,16 +77,16 @@ void setup()
   chassis.setMotorPIDcoeffs(1.1,0.05);
   //chassis.setMotorEfforts(63, 50);
   
-  
+  Serial.print("Setup");
 
 
   //Setup the Line Sensors
-  pinMode(A0, INPUT);
-  pinMode(A1, INPUT);
-  pinMode(A2, INPUT);
+  pinMode(sensor0, INPUT);
+  pinMode(sensor1, INPUT);
+  pinMode(sensor2, INPUT);
   pinMode(LEFT_LINE_SENSE, INPUT);  //A3
   pinMode(RIGHT_LINE_SENSE, INPUT); //A4
-  pinMode(A5, INPUT);
+  pinMode(sensor5, INPUT);
   idle();
 
   // Initializes the IR decoder
@@ -127,10 +132,10 @@ void handleLineFollow(int speed){
   int leftLine = analogRead(LEFT_LINE_SENSE); //A3
   int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
 
-  // int A0 = analogRead(A0);
-  // int A1 = analogRead(A1);
-  // int A2 = analogRead(A2);
-  // int A5 = analogRead(A5);
+  int Analog0 = analogRead(sensor0); // 
+  int Analog1 = analogRead(sensor1) ; // 
+  int Analog2 = analogRead(sensor2); // 
+  int Analog5 = analogRead(sensor5); //
   //Define error between sensors
   int error = leftLine - rightLine;
   
@@ -204,23 +209,23 @@ void handleLineFollow(int speed){
 
   //   }
     
-      // Serial.print("A0: ");
-      // Serial.print(A0);
-      // Serial.print("\t");
-      // Serial.print("A1: ");
-      // Serial.print(A1);
-      // Serial.print("\t");
-      // Serial.print("A2: ");
-      // Serial.print(A2);
-      // Serial.print("\t");
-      Serial.print("Left Line: ");
+      Serial.print("A0: ");
+      Serial.print(Analog0);
+      Serial.print("\t");
+      Serial.print("A1: ");
+      Serial.print(Analog1);
+      Serial.print("\t");
+      Serial.print("A2: ");
+      Serial.print(Analog2);
+      Serial.print("\t");
+      Serial.print("A3 ");
       Serial.print(leftLine);
       Serial.print("\t");
-      Serial.print("Right Line: ");
+      Serial.print("A4: ");
       Serial.print(rightLine);
-      // Serial.print("\t");
-      // Serial.print("A5: ");
-      // Serial.print(A5);
+      Serial.print("\t");
+      Serial.print("A5: ");
+      Serial.print(Analog5);
       Serial.println("\t");
       // Serial.print("Error: ");
       // Serial.print(error);
