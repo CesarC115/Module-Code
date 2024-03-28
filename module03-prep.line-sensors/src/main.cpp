@@ -74,7 +74,7 @@ void setup()
 
   //Init motors
   chassis.init();
-  chassis.setMotorPIDcoeffs(1.1,0.05);
+  chassis.setMotorPIDcoeffs(1.5,0.03);   //Working 
   //chassis.setMotorEfforts(63, 50);
   
   Serial.print("Setup");
@@ -130,17 +130,17 @@ void handleLineFollow(int speed){
 
   //Read line sensors
   int Analog3 = analogRead(LEFT_LINE_SENSE); //A3 --------------------USING THIS ONE RIGHT sensor
-  int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
+  //int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
 
-  int Analog0 = analogRead(sensor0); // 
-  int Analog1 = analogRead(sensor1) ; // 
+  //int Analog0 = analogRead(sensor0); // 
+  //int Analog1 = analogRead(sensor1) ; // 
   int Analog2 = analogRead(sensor2); //  -------------------------USING THIS ONE  LEFT sensor
-  int Analog5 = analogRead(sensor5); //
+  //int Analog5 = analogRead(sensor5); //
   //Define error between sensors
   int error = Analog2 - Analog3;
   
   //Error
-  float Kp = 1.1;
+  float Kp = 0.9;
   // float KGain = Kp;
 
   // //Integral
@@ -153,10 +153,12 @@ void handleLineFollow(int speed){
   // int prevError = 0;
   // int derivative = error - prevError;
 
-  // //NonLinear Error gain for very sharp turns
-  // if(abs(error) > 150) {
-  //   KGain = Kp * 3.0;
-  // }
+  // Additional gain for sharp turns (adaptive control)
+  const int MAX_EXPECTED_ERROR = 1000;
+  float threshold = 0.7 * MAX_EXPECTED_ERROR;
+  if(abs(error) > threshold) {
+    Kp *= 1.2;    
+  }
 
   // //Reset integral on direction change
   // if(error*prevError < 0){
@@ -169,10 +171,11 @@ void handleLineFollow(int speed){
   //Update previous error
   //prevError = error;
 
+  chassis.setTwist(speed, turnEffort);
   //On black line
-  if(Analog2 >= 300 && Analog3 >= 300){
-    chassis.setTwist(speed, turnEffort);
-  }
+  // if(Analog2 >= 300 && Analog3 >= 300){
+  //   chassis.setTwist(speed, turnEffort);
+  // }
   //On not black Line
   // if(leftLine < 200 && rightLine < 200){
   //   chassis.setTwist(speed, turnEffort);
@@ -226,13 +229,14 @@ void handleLineFollow(int speed){
       // Serial.print("\t");
       // Serial.print("A5: ");
       // Serial.print(Analog5);
-      Serial.println("\t");
-      // Serial.print("Error: ");
-      // Serial.print(error);
-      // Serial.print("\t");
+      //Serial.print("\t");
+      Serial.print("Error: ");
+      Serial.print(error);
+      //Serial.print("\t");
       // Serial.print("tunrnEffort: ");
       // Serial.println(turnEffort);
       //chassis.printEncoderCounts();
+      Serial.println("\t");
 
                     //OUTER SENSORS DATA
     //        LIGHT                   Dark
