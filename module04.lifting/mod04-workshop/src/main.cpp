@@ -11,12 +11,16 @@
 #include <Chassis.h>
 #include <math.h>
 #include <Rangefinder.h>
+#include <servo32u4.h>
 
 
 #define sensor0 A0
 #define sensor1 A1
 #define sensor2 A2
 #define sensor5 A5
+
+#define SERVO_DOWN 750
+#define SERVO_UP 1750
 
 void handleMotionComplete(); 
 
@@ -28,6 +32,7 @@ unsigned long previousTime = 0;
 IRDecoder decoder(IR_DETECTOR_PIN);
 Chassis chassis(7,1440,13.2);
 Rangefinder rangefinder(2, 3);
+Servo32U4Pin5 servo;
 
 // A helper function for debugging
 #define LED_PIN 13
@@ -37,7 +42,7 @@ void setLED(bool value)
 }
 
 // Defines the robot states
-enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE};
+enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING};
 ROBOT_STATE robotState = ROBOT_IDLE;
 
 // idle() stops the motors
@@ -61,6 +66,8 @@ void setup()
   chassis.init();
   chassis.setMotorPIDcoeffs(1.5,0.03);   //Working 
   rangefinder.init();
+  servo.attach();
+  servo.setMinMaxMicroseconds(SERVO_DOWN, SERVO_UP);
   
   Serial.print("Setup");
 
@@ -292,7 +299,7 @@ void handleKeyPress(int16_t keyPress)
         beginLineFollowing();
       }
       if(keyPress == NUM_1){
-        Serial.print("Start picking up");
+        robotState = ROBOT_BAGGING;
       }
       break;
     default:
@@ -341,6 +348,24 @@ void loop()
     //   findLine(baseSpeed);
        
     //   break;
+    case ROBOT_BAGGING:
+      Serial.print("Start ROBOT BAGGING");
+      servo.writeMicroseconds(SERVO_UP);
+      float distance = rangefinder.getDistance();
+      delay(50);
+      if (distance < 20.0) {
+        Serial.print("Picking up");
+        for(int slow = SERVO_DOWN; slow >= SERVO_UP; slow += 50) {
+          servo.writeMicroseconds(slow);
+        }
+      }
+      Serial.print(millis());
+      Serial.print('\t');
+      Serial.print(distance); 
+      Serial.print(" cm\n");
+      break;
+
+      
 
     default:
       robotState = ROBOT_IDLE;
