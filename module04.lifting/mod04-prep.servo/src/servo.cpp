@@ -2,11 +2,14 @@
 #include <wpi-32u4-lib.h>
 #include <servo32u4.h>
 
-Servo32U4 servo;
+// USING PIN 5
+//Servo32U4 servo;
+
+Servo32U4Pin5 servo;
 
 // Declare variables to hold the limits for the servo
-#define SERVO_DOWN 1000
-#define SERVO_UP 2000
+#define SERVO_DOWN 750
+#define SERVO_UP 1750
 
 void setup() 
 {
@@ -20,7 +23,7 @@ void setup()
 
 void loop() 
 {
-  servo.writeMicroseconds(SERVO_DOWN);
+//  servo.writeMicroseconds(SERVO_DOWN);
   delay(2000);
   servo.writeMicroseconds(SERVO_UP);
   delay(2000);

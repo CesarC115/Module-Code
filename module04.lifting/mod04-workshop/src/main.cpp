@@ -1,273 +1,349 @@
 /*
- * Module 04 -- Big Beefy Arm
- *
- * Picking up a bag using the "drive and look" method
+ * Module 3 -- Move it! + Line Following
  */ 
+
+//Cesar Corral Bryan Amato
 
 #include <Arduino.h>
 #include <wpi-32u4-lib.h>
-
 #include <IRdecoder.h>
 #include <ir_codes.h>
-
 #include <Chassis.h>
-
-#include <Servo32u4.h>
+#include <math.h>
 #include <Rangefinder.h>
 
-uint16_t darkThreshold = 500;
-float speed = 10;
 
-// Declare a chassis object with nominal dimensions
-// TODO: You may need to adjust these to match the parameters in earlier activities
-Chassis chassis(7.0, 1440, 14.9);
+#define sensor0 A0
+#define sensor1 A1
+#define sensor2 A2
+#define sensor5 A5
 
-// Due to library constraints, servo MUST be connected to pin 5
-Servo32U4 servo;
+void handleMotionComplete(); 
 
-#define SERVO_UP 2300
-#define SERVO_DOWN 500
-
-// Declare rangefinder object
-Rangefinder rangefinder(11, 4);
-
-// Setup the IR receiver/decoder object
+// Sets up the IR receiver/decoder object
 const uint8_t IR_DETECTOR_PIN = 1;
-IRDecoder decoder(IR_DETECTOR_PIN);
+volatile int baseSpeed = 10;
+unsigned long previousTime = 0;
 
-// Helper function for debugging
+IRDecoder decoder(IR_DETECTOR_PIN);
+Chassis chassis(7,1440,13.2);
+Rangefinder rangefinder(2, 3);
+
+// A helper function for debugging
 #define LED_PIN 13
 void setLED(bool value)
 {
-  Serial.println("setLED()");
   digitalWrite(LED_PIN, value);
 }
 
-// TODO, Section 7.2: Add bagging state
-enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINE_FOLLOWING, ROBOT_BAGGING};
+// Defines the robot states
+enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE};
 ROBOT_STATE robotState = ROBOT_IDLE;
 
-// A helper function to stop the motors
+// idle() stops the motors
 void idle(void)
 {
-  Serial.println("idle()");
+  Serial.println("idle() state");
   setLED(LOW);
 
-  //stop motors 
   chassis.idle();
 
   //set state to idle
   robotState = ROBOT_IDLE;
 }
 
-// A helper command to drive a set distance
-void drive(float dist, float speed)
-{
-  Serial.println("drive()");
-  setLED(HIGH);
-  chassis.driveFor(dist, speed);
-  robotState = ROBOT_DRIVE_FOR;
-}
-
-// A helper function to turn a set angle
-void turn(float ang, float speed)
-{
-  Serial.println("turn()");
-  setLED(HIGH);
-  chassis.turnFor(ang, speed);
-  robotState = ROBOT_DRIVE_FOR;
-}
-
-// Used to check if the motions above are complete
-void handleMotionComplete(void)
-{
-  idle();
-}
-
-void beginLineFollowing(void)
-{
-  setLED(HIGH);
-  robotState = ROBOT_LINE_FOLLOWING;
-}
-
-// TODO: Add function to begin bagging
-void beginBagging(void)
-{
-  robotState = ROBOT_BAGGING;
-  servo.writeMicroseconds(SERVO_DOWN);
-  speed = 5;
-}
-
-// TODO, Section 7.2: Add function to detect if bag is close enough
-bool checkForBag(uint16_t threshold)
-{
-  static uint16_t prevDistance = 99;
-
-  bool retVal = false;
-
-  // Add event logic here
-  float currDistance = rangefinder.getDistance();
-
-  if(currDistance < threshold && prevDistance >= threshold) {retVal = true;}
-  prevDistance = currDistance;
-
-  return retVal;
-}
-
-// TODO, Section 7.2: Add function to pick up bag
-void pickupBag(void)
-{
-  Serial.print("Bagging...");
-
-  // Put servo control here
-  servo.writeMicroseconds(SERVO_UP);
-
-  // Don't forget to call idle()!
-  idle();
-}
-
-// Handles a key press on the IR remote
-void handleKeyPress(int16_t keyPress)
-{
-  Serial.println("Key: " + String(keyPress));
-
-  //ENTER_SAVE idles, regardless of state -- E-stop
-  if(keyPress == ENTER_SAVE) idle(); 
-
-  switch(robotState)
-  {
-    case ROBOT_IDLE:
-      if(keyPress == UP_ARROW) drive(50, 10);
-      else if(keyPress == DOWN_ARROW) drive(-50, 10);
-      else if(keyPress == LEFT_ARROW) turn(90, 45);
-      else if(keyPress == RIGHT_ARROW) turn(-90, 45);
-      else if(keyPress == SETUP_BTN) beginLineFollowing();
-
-      // TODO, Section 7.2: Handle rewind button -> initiate bag pickup
-      else if(keyPress == REWIND) beginBagging();
-      break;
-      
-    case ROBOT_LINE_FOLLOWING:
-      if(keyPress == VOLplus)  //VOL+ increases speed
-      {
-        speed += 5;
-      }
-
-      if(keyPress == VOLminus)  //VOL- decreases speed
-      {
-        speed -= 5;
-      }
-      break;
-
-     default:
-      break;
-  }
-}
-
-void handleLineFollowing(float baseSpeed)
-{
-  const float Kp = 0.1;
-
-  int16_t leftADC = analogRead(LEFT_LINE_SENSE);
-  int16_t rightADC = analogRead(RIGHT_LINE_SENSE);
-  
-  int16_t error = leftADC - rightADC;
-  float turnEffort = Kp * error;
-  
-  chassis.setTwist(baseSpeed, turnEffort);
-}
-
-// //here's a nice opportunity to introduce boolean logic
-bool checkIntersectionEvent(int16_t darkThreshold)
-{
-  static bool prevIntersection = false;
-
-  bool retVal = false;
-
-  bool leftDetect = analogRead(LEFT_LINE_SENSE) > darkThreshold ? true : false;
-  bool rightDetect = analogRead(RIGHT_LINE_SENSE) > darkThreshold ? true : false;
-
-  bool intersection = leftDetect && rightDetect;
-  if(intersection && !prevIntersection) retVal = true;
-  prevIntersection = intersection;
-
-  return retVal;
-}
-
-void handleIntersection(void)
-{
-  Serial.println("Intersection!");
-
-  //drive forward by dead reckoning to center the robot
-  chassis.driveFor(8, 5);
-
-  robotState = ROBOT_DRIVE_FOR;
-}
-
-/*
- * This is the standard setup function that is called when the board is rebooted
- * It is used to initialize anything that needs to be done once.
- */
 void setup() 
 {
-  // This will initialize the Serial at a baud rate of 115200 for prints
-  // Be sure to set your Serial Monitor appropriately
+  //Init Comms with console
   Serial.begin(115200);
 
-  // initialize the chassis (which also initializes the motors)
+  //Init motors
   chassis.init();
+  chassis.setMotorPIDcoeffs(1.5,0.03);   //Working 
+  rangefinder.init();
+  
+  Serial.print("Setup");
+
+
+  //Setup the Line Sensors
+  pinMode(sensor0, INPUT);
+  pinMode(sensor1, INPUT);
+  pinMode(sensor2, INPUT);
+  pinMode(LEFT_LINE_SENSE, INPUT);  //A3
+  pinMode(RIGHT_LINE_SENSE, INPUT); //A4
+  pinMode(sensor5, INPUT);
   idle();
 
-  //these can be undone for the student to adjust
-  chassis.setMotorPIDcoeffs(5, 0.5);
-
-  // Attch the servo to intermediate position
-  servo.setMinMaxMicroseconds(SERVO_DOWN, SERVO_UP);
-  servo.attach();
-
-  // TODO, Section 7.2: Adjust servo limits
-  // servo.setMinMaxMicroseconds(...);
-
-  // Initialize rangefinder
-  rangefinder.init();
-
-  // Initialize the IR decoder
+  // Initializes the IR decoder
   decoder.init();
 
   Serial.println("/setup()");
 }
 
-/*
- * The main loop for the program. The loop function is repeatedly called
- * after setup() is complete.
- */
+void drive(float distancecm, float speed)
+{
+  setLED(HIGH);
+  robotState = ROBOT_DRIVE_FOR;
+  chassis.driveFor(distancecm,speed,false);
+}
+
+// A helper function to turn a set angle
+void turn(float ang, float speed)
+{
+  setLED(HIGH);
+  robotState = ROBOT_DRIVE_FOR;
+  chassis.turnFor(ang, speed);
+}
+
+//Function to handle the motion complete event
+void handleMotionComplete(){
+  idle();
+} 
+
+//Function that handles Line Following
+void beginLineFollowing(){
+  //Setup
+  Serial.println("beginLineFollowing()");
+  setLED(HIGH);
+  robotState = ROBOT_LINING;
+}
+
+  //Save error history in vector
+  const int ERR_HISTORY_SIZE = 10;
+  int errorHistory[ERR_HISTORY_SIZE];
+  int errorHistoryIndex = 0;
+
+//Function to handle the Line Following
+void handleLineFollow(int speed){
+  
+  //uint16_t positionLine = qtr.readLineBlack(sensorValues);
+
+  //Read line sensors
+  int Analog3 = analogRead(LEFT_LINE_SENSE); //A3 --------------------USING THIS ONE RIGHT sensor
+  int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
+
+  int Analog0 = analogRead(sensor0); // 
+  int Analog1 = analogRead(sensor1) ; // 
+  int Analog2 = analogRead(sensor2); //  -------------------------USING THIS ONE  LEFT sensor
+  int Analog5 = analogRead(sensor5); //
+  //Define error between sensors
+  int error = Analog2 - Analog3;
+
+  errorHistory[errorHistoryIndex] = error;
+  errorHistoryIndex = (errorHistoryIndex + 1) % ERR_HISTORY_SIZE;
+
+  //Calculate average error from history
+  float avgError = 0.0;
+  long sum = 0;
+  for(int i=0; i<ERR_HISTORY_SIZE; i++){
+    sum += errorHistory[i];
+  }
+
+  avgError = (float)sum / ERR_HISTORY_SIZE;
+  
+  //Error
+  float Kp = 0.6;
+
+  //SHAR TURNS CONTROL
+  if(abs(error) > 5*avgError){
+    Kp *= 1.1;
+  }
+  if(abs(error) > 6*avgError){
+    Kp *= 1.2;
+  }
+  if(abs(error) > 7*avgError){
+    Kp *= 1.3;
+  }
+
+  // Additional gain for sharp turns (adaptive control)
+  // const int MAX_EXPECTED_ERROR = 1000;
+  // float threshold = 0.7 * MAX_EXPECTED_ERROR;
+  // if(abs(error) > threshold) {
+  //   Kp *= 1.3;    
+  // }
+
+  // //Reset integral on direction change
+  // if(error*prevError < 0){
+  //   integral = 0;
+  // }
+
+  //Calculate turn effor with Kp and Kd
+  //float turnEffort = KGain*error + Ki*integral + Kd*derivative; //Error * K_p
+  float turnEffort = Kp * error;
+  //Update previous error
+  //prevError = error;
+
+  chassis.setTwist(speed, turnEffort);
+
+  //Follow the black line -------------------------------------- DO NOT DELETE
+  // if(leftLine >= 800 && rightLine >= 800){
+  //   chassis.driveFor(1,speed);
+  // }
+  // else { //correct turn direction'
+  //   //ADJUSTING TURNING EFFORT BASED ON ERROR
+  //   // if(error >= 50) turnEffort = error * 0.2;
+  //   // if(error >= 100) turnEffort = error * 0.5;
+  //   // if(error >= 200) turnEffort = error * 1.5;
+  //   chassis.setTwist(speed, -turnEffort);
+  // }
+  // //If line is lost continue for 2 seconds
+  // if(leftLine < 400 && rightLine < 400){
+
+  //   static unsigned long lostLineTimer = 0;
+
+  //   if(lostLineTimer == 0){
+  //     lostLineTimer = millis(); //Start timer
+  //     Serial.println("Start Timer");
+  //   }
+
+  //   //after 2s find line
+  //   if(millis() - lostLineTimer > 4000){   //When timer exceeds 2 seconds find line again
+
+  //     Serial.println("LOST LINE!");
+  //     lostLineTimer = 0;    //Reset timer
+  //     //robotState = ROBOT_LOST_LINE;  
+      
+
+  //   }
+    
+      Serial.print("A0: ");
+      Serial.print(Analog0);
+      Serial.print("\t");
+      Serial.print("A1: ");
+      Serial.print(Analog1);
+      Serial.print("\t");
+      Serial.print("A2: ");
+      Serial.print(Analog2);
+      Serial.print("\t");
+      Serial.print("A3 ");
+      Serial.print(Analog3);
+      Serial.print("\t");
+      Serial.print("A4: ");
+      Serial.print(rightLine);
+      Serial.print("\t");
+      Serial.print("A5: ");
+      Serial.print(Analog5);
+      Serial.print("\t");
+      Serial.print("Error: ");
+      Serial.print(error);
+      //Serial.print("\t");
+      // Serial.print("tunrnEffort: ");
+      // Serial.println(turnEffort);
+      //chassis.printEncoderCounts();
+      Serial.println("\t");
+
+                    //OUTER SENSORS DATA
+    //        LIGHT                   Dark
+    //LEFT ~854   RIGHT ~870    LEFT ~117    RIGHT ~120
+}
+      // DO NOT DETELETE
+// void findLine(int baseSpeed){
+//   // Add code here to find the line
+//   //Serial.println("Finding Line...");
+
+//   int leftLine = analogRead(LEFT_LINE_SENSE);
+//   int rightLine = analogRead(RIGHT_LINE_SENSE);
+
+//   const int turn_speed = 20;
+
+//   chassis.setTwist(turn_speed, 100);
+//   chassis.driveFor(10, turn_speed);
+
+//   // Drive forward slowly until line is detected
+//   if(leftLine > 800 || rightLine > 800){
+    
+//     //Line found
+//     robotState = ROBOT_LINING;
+//     Serial.println("Line Found!");
+
+//   }
+//   else {
+//     //Line not found yet
+//     chassis.setTwist(baseSpeed, 100);
+  
+//     Serial.println("Turning...");
+//   }
+// }
+
+
+// Handles a key press on the IR remote
+void handleKeyPress(int16_t keyPress)
+{
+  switch(robotState)
+  {
+    case ROBOT_IDLE: 
+      if(keyPress == UP_ARROW){
+        drive(200,baseSpeed);
+        Serial.print("Button UP ARROW");
+      }
+      if(keyPress == RIGHT_ARROW){
+        turn(-90, 80);
+        Serial.print("Button RIGHT ARROW");
+      }
+      if(keyPress == LEFT_ARROW){
+        turn(90,80);
+        Serial.print("Button LEFT ARROW");
+      }
+      if(keyPress == DOWN_ARROW){
+        drive(-20.0,20.0);
+        Serial.print("Button DOWN ARROW");
+      }
+      if(keyPress == SETUP_BTN){
+        beginLineFollowing();
+      }
+      if(keyPress == NUM_1){
+        Serial.print("Start picking up");
+      }
+      break;
+    default:
+      break;
+  }
+}
+
+
 void loop()
 {
-  // Check for a key press on the remote
   int16_t keyPress = decoder.getKeyCode();
   if(keyPress >= 0) handleKeyPress(keyPress);
+
+  //Speed control
+  if(keyPress == ENTER_SAVE){
+    idle();
+    Serial.print("Idle key pressed");
+  }
+  if(keyPress == VOLplus){
+    baseSpeed += 5;
+  }
+  if(keyPress == VOLminus){
+    baseSpeed -= 5;
+  }
 
   // A basic state machine
   switch(robotState)
   {
     case ROBOT_DRIVE_FOR: 
-       if(chassis.checkMotionComplete()) handleMotionComplete(); 
-       break;
-
-    case ROBOT_LINE_FOLLOWING:
-      handleLineFollowing(speed); //argument is base speed
-      if(checkIntersectionEvent(darkThreshold)) handleIntersection();
+      //Printing Speed of Wheels
+      chassis.printSpeeds();
+     //chassis.printEncoderCounts();
+      if(keyPress == ENTER_SAVE){
+        idle();
+        Serial.print("Idle key pressed");
+      }
+      
+      if(chassis.checkMotionComplete()) handleMotionComplete(); 
       break;
-
-    // TODO, Section 7.2: Handle bagging state. You'll need to call handleLineFollowing()
-    // as well as check for the bag to be at the correct distance
-    case ROBOT_BAGGING:
-      handleLineFollowing(speed);
-      if(checkForBag(5)) pickupBag();
-
+    
+    case ROBOT_LINING:
+      handleLineFollow(baseSpeed);
       break;
+    
+    // case ROBOT_LOST_LINE:
+    //   findLine(baseSpeed);
+       
+    //   break;
 
     default:
+      robotState = ROBOT_IDLE;
       break;
   }
 }
