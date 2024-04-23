@@ -12,6 +12,8 @@
 #include <math.h>
 #include <Rangefinder.h>
 #include <servo32u4.h>
+#include <QTRSensors.h>
+// #include <Adafruit_GFX.h>
 
 
 #define sensor0 A0
@@ -20,7 +22,7 @@
 #define sensor5 A5
 
 #define SERVO_DOWN 750
-#define SERVO_UP 1750
+#define SERVO_UP 2600 // 1750
 
 void handleMotionComplete(); 
 
@@ -68,6 +70,7 @@ void setup()
   rangefinder.init();
   servo.attach();
   servo.setMinMaxMicroseconds(SERVO_DOWN, SERVO_UP);
+  servo.writeMicroseconds(SERVO_DOWN);
   
   Serial.print("Setup");
 
@@ -243,34 +246,32 @@ void handleLineFollow(int speed){
     //        LIGHT                   Dark
     //LEFT ~854   RIGHT ~870    LEFT ~117    RIGHT ~120
 }
-      // DO NOT DETELETE
-// void findLine(int baseSpeed){
-//   // Add code here to find the line
-//   //Serial.println("Finding Line...");
+void findLine(int baseSpeed){
+  Serial.println("Finding Line...");
 
-//   int leftLine = analogRead(LEFT_LINE_SENSE);
-//   int rightLine = analogRead(RIGHT_LINE_SENSE);
+  int leftLine = analogRead(LEFT_LINE_SENSE);
+  int rightLine = analogRead(RIGHT_LINE_SENSE);
 
-//   const int turn_speed = 20;
+  const int turn_speed = 20;
 
-//   chassis.setTwist(turn_speed, 100);
-//   chassis.driveFor(10, turn_speed);
+  chassis.setTwist(turn_speed, 100);
+  chassis.driveFor(10, turn_speed);
 
-//   // Drive forward slowly until line is detected
-//   if(leftLine > 800 || rightLine > 800){
+  // Drive forward slowly until line is detected
+  if(leftLine > 800 || rightLine > 800){
     
-//     //Line found
-//     robotState = ROBOT_LINING;
-//     Serial.println("Line Found!");
+    //Line found
+    robotState = ROBOT_LINING;
+    Serial.println("Line Found!");
 
-//   }
-//   else {
-//     //Line not found yet
-//     chassis.setTwist(baseSpeed, 100);
+  }
+  else {
+    //Line not found yet
+    chassis.setTwist(baseSpeed, 100);
   
-//     Serial.println("Turning...");
-//   }
-// }
+    Serial.println("Turning...");
+  }
+}
 
 
 // Handles a key press on the IR remote
@@ -300,6 +301,7 @@ void handleKeyPress(int16_t keyPress)
       }
       if(keyPress == NUM_1){
         robotState = ROBOT_BAGGING;
+        Serial.print("Start ROBOT BAGGING");
       }
       break;
     default:
@@ -310,65 +312,78 @@ void handleKeyPress(int16_t keyPress)
 
 void loop()
 {
-  int16_t keyPress = decoder.getKeyCode();
-  if(keyPress >= 0) handleKeyPress(keyPress);
+    int16_t keyPress = decoder.getKeyCode();
+    if (keyPress >= 0)
+        handleKeyPress(keyPress);
 
-  //Speed control
-  if(keyPress == ENTER_SAVE){
-    idle();
-    Serial.print("Idle key pressed");
-  }
-  if(keyPress == VOLplus){
-    baseSpeed += 5;
-  }
-  if(keyPress == VOLminus){
-    baseSpeed -= 5;
-  }
-
-  // A basic state machine
-  switch(robotState)
-  {
-    case ROBOT_DRIVE_FOR: 
-      //Printing Speed of Wheels
-      chassis.printSpeeds();
-     //chassis.printEncoderCounts();
-      if(keyPress == ENTER_SAVE){
+    // Speed control
+    if (keyPress == ENTER_SAVE)
+    {
         idle();
         Serial.print("Idle key pressed");
-      }
-      
-      if(chassis.checkMotionComplete()) handleMotionComplete(); 
-      break;
-    
+    }
+    if (keyPress == VOLplus)
+    {
+        baseSpeed += 5;
+    }
+    if (keyPress == VOLminus)
+    {
+        baseSpeed -= 5;
+    }
+
+    // A basic state machine
+    switch (robotState)
+    {
+    case ROBOT_DRIVE_FOR:
+        // Printing Speed of Wheels
+        chassis.printSpeeds();
+        // chassis.printEncoderCounts();
+        if (keyPress == ENTER_SAVE)
+        {
+            idle();
+            Serial.print("Idle key pressed");
+        }
+
+        if (chassis.checkMotionComplete())
+            handleMotionComplete();
+        break;
+
     case ROBOT_LINING:
-      handleLineFollow(baseSpeed);
-      break;
-    
-    // case ROBOT_LOST_LINE:
-    //   findLine(baseSpeed);
-       
-    //   break;
+        handleLineFollow(baseSpeed);
+        break;
+
+    case ROBOT_LOST_LINE:
+        findLine(baseSpeed);
+
+        break;
+
     case ROBOT_BAGGING:
-      Serial.print("Start ROBOT BAGGING");
-      servo.writeMicroseconds(SERVO_UP);
       float distance = rangefinder.getDistance();
       delay(50);
-      if (distance < 20.0) {
-        Serial.print("Picking up");
-        for(int slow = SERVO_DOWN; slow >= SERVO_UP; slow += 50) {
-          servo.writeMicroseconds(slow);
-        }
+      if (distance < 10.0)
+      {
+          Serial.print("Picking up");
+          servo.writeMicroseconds(SERVO_UP);
+          
+          // for (int slow = SERVO_DOWN; slow <= SERVO_UP; slow += 50)
+          // {
+          //   servo.writeMicroseconds(slow);
+            
+          // }
+      }
+      else {
+        servo.writeMicroseconds(SERVO_DOWN);
       }
       Serial.print(millis());
       Serial.print('\t');
-      Serial.print(distance); 
+      Serial.print(distance);
       Serial.print(" cm\n");
       break;
 
-      
+    // case ROBOT_IDLE:
+    //     break;
 
     default:
-      robotState = ROBOT_IDLE;
-      break;
-  }
+        break;
+    }
 }
