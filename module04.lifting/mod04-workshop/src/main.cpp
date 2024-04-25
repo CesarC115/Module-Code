@@ -13,6 +13,7 @@
 #include <Rangefinder.h>
 #include <servo32u4.h>
 #include <QTRSensors.h>
+#include <test.cpp>
 //#include <Romi32U4Buzzer.h>
 // #include <Adafruit_GFX.h>
 
@@ -28,7 +29,11 @@
 #define SERVO_DOWN 750
 #define SERVO_UP 2600 // 1750
 
+// Fucntion prototypes
+void QTR_init(void);
 void handleMotionComplete(); 
+bool detectPackage();
+void pickupPackage();
 
 // Global Vars
 const uint8_t IR_DETECTOR_PIN = 1;
@@ -65,8 +70,44 @@ Rangefinder rangefinder(2, 3);
 Servo32U4Pin5 servo;
 QTRSensors qtr;
 
+// Class defining the MAP
+class MAP {
+  // Attributes
+  char* location;
+  bool hasPackage;
 
-void QTR_init(void);
+
+
+  public:
+  // MAP() { // Constructor
+    
+  // }
+};
+
+
+bool detectPackage() {
+  float distance = rangefinder.getDistance();
+  delay(50);
+  if (distance < 10.0){
+    return true;
+  }
+  else{
+    return false;
+  }
+  Serial.print(distance);
+  Serial.print(" cm\n");
+
+}
+
+void pickupPackage(){
+  Serial.print("Picking up...");
+  servo.writeMicroseconds(SERVO_DOWN);
+  
+  //Picking up slowly
+  for (int slow = SERVO_DOWN; slow >= SERVO_UP; slow += 50){
+    servo.writeMicroseconds(slow); 
+  }
+}
 
 void setLED(bool value)
 {
@@ -74,7 +115,7 @@ void setLED(bool value)
 }
 
 // Defines the robot states
-enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING, ROBOT_DEBUG};
+enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING, ROBOT_DEBUG, ROBOT_DELIVERY};
 ROBOT_STATE robotState = ROBOT_IDLE;
 
 // idle() stops the motors
@@ -469,82 +510,97 @@ void handleKeyPress(int16_t keyPress)
 
 void loop()
 {
-    int16_t keyPress = decoder.getKeyCode();
-    if (keyPress >= 0)
-        handleKeyPress(keyPress);
 
-    // Speed control
-    if (keyPress == ENTER_SAVE)
-    {
+  printing_test();
+  int16_t keyPress = decoder.getKeyCode();
+  if (keyPress >= 0)
+      handleKeyPress(keyPress);
+
+  // Speed control
+  if (keyPress == ENTER_SAVE)
+  {
+      idle();
+      Serial.print("Idle key pressed");
+  }
+  if (keyPress == VOLplus)
+  {
+      baseSpeed += 5;
+  }
+  if (keyPress == VOLminus)
+  {
+      baseSpeed -= 5;
+  }
+
+  // A basic state machine
+  switch (robotState)
+  {
+  case ROBOT_DRIVE_FOR:
+      // Printing Speed of Wheels
+      chassis.printSpeeds();
+      // chassis.printEncoderCounts();
+      if (keyPress == ENTER_SAVE)
+      {
         idle();
         Serial.print("Idle key pressed");
-    }
-    if (keyPress == VOLplus)
-    {
-        baseSpeed += 5;
-    }
-    if (keyPress == VOLminus)
-    {
-        baseSpeed -= 5;
-    }
+      }
 
-    // A basic state machine
-    switch (robotState)
-    {
-    case ROBOT_DRIVE_FOR:
-        // Printing Speed of Wheels
-        chassis.printSpeeds();
-        // chassis.printEncoderCounts();
-        if (keyPress == ENTER_SAVE)
-        {
-          idle();
-          Serial.print("Idle key pressed");
-        }
+      if (chassis.checkMotionComplete())
+          handleMotionComplete();
+      break;
 
-        if (chassis.checkMotionComplete())
-            handleMotionComplete();
-        break;
+  case ROBOT_LINING:
+    PID_control();
+    handleLineFollow(baseSpeed);
+    break;
 
-    case ROBOT_LINING:
-      PID_control();
+  case ROBOT_LOST_LINE:
+      findLine(baseSpeed);
+      break;
+
+  case ROBOT_BAGGING:
+    //Line Follow until package is detected
+    PID_control();
+
+    if (detectPackage() == true){
+      Serial.print("Package detected!");
+
+      //Pick up package
+      pickupPackage();
+
+      //Change State to delivery mode
+      robotState = ROBOT_DELIVERY;
+
+    }
+    else {
+      Serial.print("Searching Package...");
       handleLineFollow(baseSpeed);
-      break;
-
-    case ROBOT_LOST_LINE:
-        findLine(baseSpeed);
-        break;
-
-    case ROBOT_BAGGING:
-      float distance = rangefinder.getDistance();
-      delay(50);
-      if (distance < 10.0)
-      {
-          Serial.print("Picking up");
-          servo.writeMicroseconds(SERVO_UP);
-          
-          // for (int slow = SERVO_DOWN; slow <= SERVO_UP; slow += 50)
-          // {
-          //   servo.writeMicroseconds(slow);
-            
-          // }
-      }
-      else {
-        servo.writeMicroseconds(SERVO_DOWN);
-      }
-      Serial.print(millis());
-      Serial.print('\t');
-      Serial.print(distance);
-      Serial.print(" cm\n");
-      break;
-
-    // case ROBOT_DEBUG:
-    //   debug();
-    //   break;
-    // case ROBOT_IDLE:
-    //   break;
-
-    default:
-      Serial.println("Unknown State");
-      break;
     }
+    Serial.print(millis());
+    Serial.print('\t');
+    break;
+  
+  case ROBOT_DELIVERY:
+    // State that indicates robot is ON delivery mode.
+    Serial.print("Delivery Mode");
+    turn(180, 5); // After detecting package and pick it up, turn around and start delivering
+
+    //Function that accepts where to deliver the package
+
+    //Function that detects if the robot has reached the delivery location
+
+    //Function that detects traffic and obstacles along the way
+
+    //Function that drops package at delivery location
+
+    break;
+  // case ROBOT_DEBUG:
+  //   debug();
+  //   break;
+  // case ROBOT_IDLE:
+  //   break;
+
+  default:
+    Serial.println("Unknown State");
+    break;
+  }
 }
