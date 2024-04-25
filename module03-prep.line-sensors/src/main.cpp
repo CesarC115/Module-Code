@@ -137,12 +137,12 @@ void handleLineFollow(int speed){
 
   //Read line sensors
   int Analog3 = analogRead(LEFT_LINE_SENSE); //A3 --------------------USING THIS ONE RIGHT sensor
-  //int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
+  int rightLine = analogRead(RIGHT_LINE_SENSE); //A4
 
-  //int Analog0 = analogRead(sensor0); // 
-  //int Analog1 = analogRead(sensor1) ; // 
+  int Analog0 = analogRead(sensor0); // 
+  int Analog1 = analogRead(sensor1) ; // 
   int Analog2 = analogRead(sensor2); //  -------------------------USING THIS ONE  LEFT sensor
-  //int Analog5 = analogRead(sensor5); //
+  int Analog5 = analogRead(sensor5); //
   //Define error between sensors
   int error = Analog2 - Analog3;
 
@@ -160,17 +160,6 @@ void handleLineFollow(int speed){
   
   //Error
   float Kp = 0.6;
-  // float KGain = Kp;
-
-  // //Integral
-  // float Ki = 0.007;
-  // float integral = 0;
-  // integral += error;
-
-  // //Derivative
-  // const float Kd = 0.05;
-  // int prevError = 0;
-  // int derivative = error - prevError;
 
   //SHAR TURNS CONTROL
   if(abs(error) > 5*avgError){
@@ -242,24 +231,24 @@ void handleLineFollow(int speed){
 
   //   }
     
-      // Serial.print("A0: ");
-      // Serial.print(Analog0);
-      // Serial.print("\t");
-      // Serial.print("A1: ");
-      // Serial.print(Analog1);
-      // Serial.print("\t");
+      Serial.print("A0: ");
+      Serial.print(Analog0);
+      Serial.print("\t");
+      Serial.print("A1: ");
+      Serial.print(Analog1);
+      Serial.print("\t");
       Serial.print("A2: ");
       Serial.print(Analog2);
       Serial.print("\t");
       Serial.print("A3 ");
       Serial.print(Analog3);
       Serial.print("\t");
-      // Serial.print("A4: ");
-      // Serial.print(rightLine);
-      // Serial.print("\t");
-      // Serial.print("A5: ");
-      // Serial.print(Analog5);
-      //Serial.print("\t");
+      Serial.print("A4: ");
+      Serial.print(rightLine);
+      Serial.print("\t");
+      Serial.print("A5: ");
+      Serial.print(Analog5);
+      Serial.print("\t");
       Serial.print("Error: ");
       Serial.print(error);
       //Serial.print("\t");

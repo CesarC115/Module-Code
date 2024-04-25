@@ -2,7 +2,7 @@
 #include <wpi-32u4-lib.h>
 #include <Rangefinder.h>
 
-Rangefinder rangefinder(11, 4);
+Rangefinder rangefinder(2, 3);
 
 void setup() 
 {
