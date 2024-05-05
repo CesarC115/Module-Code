@@ -23,7 +23,7 @@ void setup()
 
 void loop() 
 {
-//  servo.writeMicroseconds(SERVO_DOWN);
+  //servo.writeMicroseconds(SERVO_DOWN);
   delay(2000);
   servo.writeMicroseconds(SERVO_UP);
   delay(2000);

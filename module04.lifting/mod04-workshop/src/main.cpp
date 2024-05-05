@@ -13,7 +13,8 @@
 #include <Rangefinder.h>
 #include <servo32u4.h>
 #include <QTRSensors.h>
-#include <test.cpp>
+#include <ArduinoSTL.h>
+//#include <test.cpp>
 //#include <Romi32U4Buzzer.h>
 // #include <Adafruit_GFX.h>
 
@@ -22,18 +23,27 @@
 #define sensor1 A1
 #define sensor2 A2
 #define sensor5 A5
+#define BUZZER_PIN 6
 
 #define LED_PIN 1
 #define LED_IR_CALIBRATE 0
 
 #define SERVO_DOWN 750
-#define SERVO_UP 2600 // 1750
+#define SERVO_UP 1750 // 1750
+
 
 // Fucntion prototypes
 void QTR_init(void);
 void handleMotionComplete(); 
 bool detectPackage();
 void pickupPackage();
+void alignToIntersection();
+void handleIntersection();
+void deliverTo(String location, int intersection_count, bool start, bool packet_detected);
+bool checkIntersectionEvent(uint16_t darkThreshold);
+void PID_control();
+
+
 
 // Global Vars
 const uint8_t IR_DETECTOR_PIN = 1;
@@ -41,13 +51,17 @@ volatile int baseSpeed = 10;
 unsigned long previousTime = 0;
 const uint8_t SensorCount = 5;
 uint16_t sensorValues[SensorCount];
+uint16_t darkThreshold = 500;
 volatile uint16_t leftLine;
-volatile uint16_t rightLine;  
+volatile uint16_t rightLine; 
+int intersection_count = 0;
+bool start = false;
+ 
 
 int lastError = 0;
 float Kp = 0.07;
-float Ki = 0.0008;
-float Kd = 0.6;
+float Ki = 0.0;
+float Kd = 0.06;
 
 int P = 0;
 int I = 0;
@@ -70,23 +84,72 @@ Rangefinder rangefinder(2, 3);
 Servo32U4Pin5 servo;
 QTRSensors qtr;
 
-// Class defining the MAP
-class MAP {
-  // Attributes
-  char* location;
-  bool hasPackage;
+// Defines the robot states
+enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING, ROBOT_DEBUG, ROBOT_DELIVERY, ROBOT_PICKUP, ROBOT_DROP};
+ROBOT_STATE robotState = ROBOT_IDLE;
 
 
-
-  public:
-  // MAP() { // Constructor
-    
+void deliverTo(String location, int intersection_count, bool start, bool packet_detected) {
+  // if(location == "warehouse" &&  start){
+  //   chassis.turnFor(180, 30, true);
+  //   if(checkIntersectionEvent(darkThreshold)){
+  //     handleIntersection();
+  //   }
+  //   start = false;
+  // } else {  // DONT TURN 180
+  //   if(checkIntersectionEvent(darkThreshold)){
+  //     handleIntersection();
+  //   }
   // }
-};
 
+  // ALL LOCATIONS
+  if(location == "sunlandpark" && intersection_count == 2 &&  packet_detected){
+    Serial.print("Arrived to sunland park");
+    robotState = ROBOT_PICKUP;
+    intersection_count = 0;
+    start = false;  
+  }
+    // GO back to warehouse
+    // if(!start){
+    //   chassis.turnFor(180, 30, true);
+    //   if(intersection_count == 3){
+    //     robotState = ROBOT_DROP;
+    //     intersection_count = 0;
+    //   } 
+    //   start = true;
+    // }
+  
+  // else chassis.idle();
+
+  
+}
+
+void beep(boolean input) {
+  // Play a tone on the buzzer pin
+  tone(BUZZER_PIN, 500, 1000); // 440 Hz for 200 ms
+  if (input) {
+    Serial.println("BEEP");
+  }
+}
+
+bool checkIntersectionEvent(uint16_t darkThreshold){
+  static bool prevIntersection = false;
+
+  bool retVal = false;
+
+  bool leftDetect = (sensorValues[0]) > darkThreshold ? true : false;
+  bool rightDetect = (sensorValues[SensorCount-1]) > darkThreshold ? true : false;
+
+  bool intersection = leftDetect && rightDetect;
+  if(intersection && !prevIntersection) retVal = true;
+  prevIntersection = intersection;
+
+  return retVal;
+}
 
 bool detectPackage() {
-  float distance = rangefinder.getDistance();
+  float distance  = 0.0;
+  distance = rangefinder.getDistance();
   delay(50);
   if (distance < 10.0){
     return true;
@@ -104,9 +167,22 @@ void pickupPackage(){
   servo.writeMicroseconds(SERVO_DOWN);
   
   //Picking up slowly
-  for (int slow = SERVO_DOWN; slow >= SERVO_UP; slow += 50){
+  for (int slow = SERVO_DOWN; slow <= SERVO_UP; slow += 50){
+    delay(50);
     servo.writeMicroseconds(slow); 
   }
+  
+}
+
+void dropPackage(){
+  Serial.print("Dropping packet...");
+  
+  //Dropping slowly
+  for (int slow = SERVO_UP; slow >= SERVO_DOWN; slow -= 50){
+    delay(50);
+    servo.writeMicroseconds(slow); 
+  }
+  
 }
 
 void setLED(bool value)
@@ -114,16 +190,13 @@ void setLED(bool value)
   digitalWrite(LED_PIN, value);
 }
 
-// Defines the robot states
-enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING, ROBOT_DEBUG, ROBOT_DELIVERY};
-ROBOT_STATE robotState = ROBOT_IDLE;
 
 // idle() stops the motors
 void idle(void)
 {
   Serial.println("idle() state");
   setLED(LOW);
-
+  servo.writeMicroseconds(SERVO_DOWN);
   chassis.idle();
 
   //set state to idle
@@ -138,15 +211,12 @@ void setup()
 
   //Init motors
   chassis.init();
-  chassis.setMotorPIDcoeffs(7,2);   //Working 
+  chassis.setMotorPIDcoeffs(7,2); 
   rangefinder.init();
   servo.attach();
   servo.setMinMaxMicroseconds(SERVO_DOWN, SERVO_UP);
   servo.writeMicroseconds(SERVO_DOWN);
   decoder.init();
-  
-  
-
 
   //Setup the Line Sensors
   pinMode(sensor0, INPUT);
@@ -157,9 +227,6 @@ void setup()
   pinMode(sensor5, INPUT);
   idle();
 
-
-
-  Serial.println("/setup()");
 }
 
 void QTR_init(){
@@ -184,20 +251,34 @@ void QTR_init(){
 
   digitalWrite(LED_IR_CALIBRATE, LOW);
 
+  int sensorCurr = 0;
+  int sensorMinMax = 0;
+  int sensorMaxMin = 1000;
+
   for (uint8_t i = 0; i < SensorCount; i++){
+    sensorCurr = qtr.calibrationOn.minimum[i];
     Serial.print(qtr.calibrationOn.minimum[i]);
     Serial.print(' ');
+    if(sensorCurr > sensorMinMax) sensorMinMax = sensorCurr;
   }
   Serial.println();
 
     // print the calibration maximum values measured when emitters were on
   for (uint8_t i = 0; i < SensorCount; i++){
+    sensorCurr = qtr.calibrationOn.maximum[i];
     Serial.print(qtr.calibrationOn.maximum[i]);
     Serial.print(' ');
+    if(sensorCurr < sensorMaxMin) sensorMaxMin = sensorCurr;
   }
   Serial.println();
   Serial.println();
-  delay(1000);
+  delay(500);
+
+  darkThreshold = sensorMaxMin - sensorMinMax;
+  
+  Serial.print("Maximum Min Val: "); Serial.println(sensorMinMax);
+  Serial.print("Minimum Max Val: "); Serial.println(sensorMaxMin);
+  Serial.print("Sensor darkThreshold: "); Serial.println(darkThreshold);
   
   //set state to idle
   robotState = ROBOT_IDLE;
@@ -335,6 +416,8 @@ void turn(float ang, float speed)
 //Function to handle the motion complete event
 void handleMotionComplete(){
   idle();
+
+  // When motion is complete decide where to go
 } 
 
 //Function that handles Line Following
@@ -348,10 +431,10 @@ void beginLineFollowing(){
 //Function to handle the Line Following
 void handleLineFollow(int speed){
 
-  int whiteMin = 120;
-  int whiteMax = 220;
-  int blackMin = 500;   //Sensor min was 680 but depends on proximity to black tape so overshooting
-  int blackMax = 900;   //Sensor max was ~850 but depends on proimity so overshooting
+  unsigned int whiteMin = 120;
+  unsigned int whiteMax = 220;
+  unsigned int blackMin = 500;   //Sensor min was 680 but depends on proximity to black tape so overshooting
+  unsigned int blackMax = 900;   //Sensor max was ~850 but depends on proimity so overshooting
 
 
   // Read the sensor values inside the loop
@@ -359,8 +442,8 @@ void handleLineFollow(int speed){
   rightLine = analogRead(RIGHT_LINE_SENSE);
 
   //Define error between sensors
-  int error = leftLine - rightLine;
-  int turnEffort = error * 1.1; //Error * K_p
+  //int error = leftLine - rightLine;
+  //int turnEffort = error * 1.1; //Error * K_p
 
   Serial.print("LEFT S:\t");
   //Serial.print(analogRead(LEFT_LINE_SENSE));
@@ -483,8 +566,7 @@ void findLine(int baseSpeed){
 
 
 // Handles a key press on the IR remote
-void handleKeyPress(int16_t keyPress)
-{
+void handleKeyPress(int16_t keyPress){
   Serial.println("Key: " + String(keyPress));
   switch(robotState)
   {
@@ -496,31 +578,53 @@ void handleKeyPress(int16_t keyPress)
       if(keyPress == SETUP_BTN) beginLineFollowing();
       if(keyPress == REWIND) debug();
       if(keyPress == PLAY_PAUSE) QTR_init();
-      if(keyPress == NUM_1){
-        robotState = ROBOT_BAGGING; Serial.print("Start ROBOT BAGGING");
-      } else Serial.println("Robot Idle");
-      
-      break;
+      if(keyPress == NUM_0_10 ) robotState = ROBOT_DELIVERY;
+      // if(keyPress == NUM_1){
+      //   robotState = ROBOT_BAGGING; Serial.print("Start ROBOT BAGGING");
+      // }
+      // if(keyPress == NUM_2){
+      //   pickupPackage();
+      // }
+      // if (keyPress == NUM_3){
+      //   for (int slow = SERVO_UP; slow >= SERVO_DOWN; slow -= 50){
+      //     delayMicroseconds(50000);
+      //     servo.writeMicroseconds(slow); 
+      //   }
+      // }
+    break;
     default: 
       Serial.println("Unknown State");
       break;
   }
 }
 
+void handleIntersection(void){
+  Serial.println("Intersection!");
+  //beep(true);
+
+  //drive forward by dead reckoning to center the robot
+  drive(5, 10);
+
+  robotState = ROBOT_IDLE;
+}
+
 
 void loop()
 {
-
-  printing_test();
   int16_t keyPress = decoder.getKeyCode();
-  if (keyPress >= 0)
-      handleKeyPress(keyPress);
+  String delivery_location = "";
+  bool packet_detected = false;
+  bool delivering = false; 
 
+  if (keyPress >= 0){
+   Serial.println("Key pressed:" + String(keyPress));
+   handleKeyPress(keyPress);
+  }
   // Speed control
   if (keyPress == ENTER_SAVE)
   {
-      idle();
-      Serial.print("Idle key pressed");
+    idle();
+    Serial.print("Idle key pressed");
   }
   if (keyPress == VOLplus)
   {
@@ -550,7 +654,8 @@ void loop()
 
   case ROBOT_LINING:
     PID_control();
-    handleLineFollow(baseSpeed);
+    //Interserctions
+    //handleLineFollow(baseSpeed);
     break;
 
   case ROBOT_LOST_LINE:
@@ -560,38 +665,50 @@ void loop()
   case ROBOT_BAGGING:
     //Line Follow until package is detected
     PID_control();
+    //handleLineFollow(baseSpeed);
 
     if (detectPackage() == true){
       Serial.print("Package detected!");
-
-      //Pick up package
-      pickupPackage();
+      chassis.driveFor(5, 10, true);
+      robotState = ROBOT_PICKUP;
 
       //Change State to delivery mode
-      robotState = ROBOT_DELIVERY;
+      //robotState = ROBOT_DELIVERY;
 
     }
-    else {
-      Serial.print("Searching Package...");
-      handleLineFollow(baseSpeed);
-    }
-    Serial.print(millis());
-    Serial.print('\t');
     break;
   
   case ROBOT_DELIVERY:
     // State that indicates robot is ON delivery mode.
     Serial.print("Delivery Mode");
-    turn(180, 5); // After detecting package and pick it up, turn around and start delivering
 
-    //Function that accepts where to deliver the package
+    //Line follow
+    PID_control();
 
-    //Function that detects if the robot has reached the delivery location
+    // Detecting Intersections
+    if(checkIntersectionEvent(darkThreshold)) intersection_count++;
+
+    if(detectPackage()){
+      packet_detected = true;
+      Serial.println("Object Detected");
+      //beep(true);
+      //handle alternative route
+    }
+
+
 
     //Function that detects traffic and obstacles along the way
 
     //Function that drops package at delivery location
 
+    break;
+  case ROBOT_PICKUP:
+    // State to pick up package
+    delivering = false;
+    chassis.driveFor(5, 10, true);
+    pickupPackage();
+    chassis.turnFor(180, 30, true);
+    robotState = ROBOT_DELIVERY;
     break;
   // case ROBOT_DEBUG:
   //   debug();
@@ -599,8 +716,37 @@ void loop()
   // case ROBOT_IDLE:
   //   break;
 
+  case ROBOT_WAIT:
+      // Wait for user to select delivery location
+    if(keyPress == NUM_1){
+      delivery_location = "warehouse";
+      deliverTo(delivery_location, intersection_count, start, packet_detected);
+      Serial.println("Delivery Location set to Warehouse");
+    }
+    if(keyPress == NUM_3){
+      delivery_location = "sunlandpark";
+      deliverTo(delivery_location, intersection_count, start, packet_detected);
+      Serial.println("Delivery Location set to Sunland Park");
+    }
+
+    robotState = ROBOT_DELIVERY;
+    // else {
+    //   // deliverTo("wait", intersection_count, start, packet_detected);
+    //   Serial.println("Waiting for delivery location selection...");
+    // }
+    // else if(keyPress == NUM_2){
+    //     deliveryLocation = LOCATION_2;
+    //     Serial.println("Delivery Location set to Location 2");
+    // }
+    // else if(keyPress == NUM_3){
+    //     deliveryLocation = LOCATION_3;
+    //     Serial.println("Delivery Location set to Location 3");
+    // }
+
+   break;
+
   default:
-    Serial.println("Unknown State");
+    robotState = ROBOT_IDLE;
     break;
   }
 }
