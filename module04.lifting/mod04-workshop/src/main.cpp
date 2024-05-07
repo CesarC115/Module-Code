@@ -558,6 +558,53 @@ int deliverTo(String location, int intersection_count, bool done_delivering, boo
       packet_detected = false;
       goWarehouse();
     }
+    else if(location == "doniphan"){
+      while(intersection_count != 1){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.driveFor(7,30,true);
+      chassis.turnFor(-95, 90, true);
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.driveFor(15,30,true);
+      chassis.turnFor(95, 90, true);
+      chassis.driveFor(15,30,true);
+      chassis.idle();
+      dropPackage(floor_level);
+      chassis.driveFor(-15,30,true);
+      chassis.turnFor(95, 90, true);
+      intersection_count = 0;
+
+      // GO back
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.driveFor(7,30,true);
+      chassis.turnFor(95, 90, true);
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      intersection_count = 0;
+      packet_detected = false;
+      goWarehouse();
+    }
 
     
 
