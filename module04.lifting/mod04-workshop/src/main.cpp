@@ -235,8 +235,263 @@ int deliverTo(String location, int intersection_count, bool done_delivering, boo
         intersection_count++;
       }
     }
+    chassis.turnFor(95, 30, true);
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(-95, 30, true);
+    chassis.driveFor(10, 10, true);
+    dropPackage(floor_level);
+    chassis.turnFor(185, 30, true);
+    intersection_count = 0;
+
+    // GO BACK
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(95, 30, true);
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(-95, 30, true);
+    while(intersection_count != 3){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+
+    intersection_count = 0;
+    goWarehouse();
   }
+  else if(location == "franklin"){
+    while(intersection_count != 1){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+    }
+    chassis.turnFor(95, 30, true);
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+      chassis.turnFor(95, 30, true);
+      chassis.driveFor(10, 10, true);
+      dropPackage(floor_level);
+      chassis.turnFor(185, 30, true);
+      intersection_count = 0;
+
+      // Go Back
+      while(intersection_count != 1){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      intersection_count = 0;
+      goWarehouse();
+    }
+    else if(location == "outlets"){
+      chassis.turnFor(95, 30, true);  
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+            Serial.println("Intersection Detected");
+            intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 4){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      dropPackage(floor_level);
+      intersection_count = 0;
+      chassis.turnFor(185, 30, true);
+      // GO back
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 4){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95,30,true);
+      intersection_count = 0;
+      goWarehouse();
+    }
+    else if(location == "lascruces"){
+      chassis.turnFor(95, 30, true);  
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+            Serial.println("Intersection Detected");
+            intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 4){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      dropPackage(floor_level);
+      chassis.turnFor(185, 30, true);
+      intersection_count = 0;
+
+      // GO back
+      while(intersection_count != 1){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 4){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      intersection_count = 0;
+      goWarehouse();
+    }
+    else if(location == "alamogordo"){
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      dropPackage(floor_level);
+      chassis.turnFor(185, 30, true);
+      intersection_count = 0;
+
+      // GO back
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      intersection_count = 0;
+      goWarehouse();
+    }
+    else if(location == "ftbliss"){
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(95, 30, true);
+      while(intersection_count != 3){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      dropPackage(floor_level);
+      chassis.turnFor(185, 30, true);
+      intersection_count = 0;
+
+      // GO back
+      while(intersection_count != 1){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95, 30, true);
+      while(intersection_count != 2){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+          Serial.println("Intersection Detected");
+          intersection_count++;
+        }
+      }
+      chassis.turnFor(-95,30,true);
+      intersection_count = 0;
+      goWarehouse();
+    }
+
     
+
   return 0;
 }
 
