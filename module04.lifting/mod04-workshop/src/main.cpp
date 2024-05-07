@@ -1,6 +1,3 @@
-/*
- * Module 3 -- Move it! + Line Following
- */ 
 
 //Cesar Corral Bryan Amato
 
@@ -28,8 +25,8 @@
 #define LED_PIN 1
 #define LED_IR_CALIBRATE 0
 
-#define SERVO_DOWN 750
-#define SERVO_UP 1750 // 1750
+#define SERVO_DOWN 500
+#define SERVO_UP 1950 // 1750
 
 
 // Fucntion prototypes
@@ -39,11 +36,12 @@ bool detectPackage();
 void pickupPackage();
 void alignToIntersection();
 void handleIntersection();
-void deliverTo(String location, int intersection_count, bool start, bool packet_detected);
+int deliverTo(String location, int intersection_count, bool start, bool packet_detected);
 bool checkIntersectionEvent(uint16_t darkThreshold);
 void PID_control();
-
-
+void beep(bool);
+void dropPackage(int floor_level);
+void goWarehouse();
 
 // Global Vars
 const uint8_t IR_DETECTOR_PIN = 1;
@@ -55,7 +53,13 @@ uint16_t darkThreshold = 500;
 volatile uint16_t leftLine;
 volatile uint16_t rightLine; 
 int intersection_count = 0;
+
+String delivery_location;
+bool packet_detected = false;
+bool done_delivering = false; 
 bool start = false;
+int floor_level;
+int deliveries = 0;
  
 
 int lastError = 0;
@@ -85,43 +89,155 @@ Servo32U4Pin5 servo;
 QTRSensors qtr;
 
 // Defines the robot states
-enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_BAGGING, ROBOT_DEBUG, ROBOT_DELIVERY, ROBOT_PICKUP, ROBOT_DROP};
+enum ROBOT_STATE {ROBOT_IDLE, ROBOT_DRIVE_FOR, ROBOT_LINING, ROBOT_LOST_LINE, ROBOT_WAREHOUSE, ROBOT_DEBUG, ROBOT_DELIVERY, ROBOT_PICKUP, ROBOT_DROP, ROBOT_WAIT};
 ROBOT_STATE robotState = ROBOT_IDLE;
 
 
-void deliverTo(String location, int intersection_count, bool start, bool packet_detected) {
-  // if(location == "warehouse" &&  start){
-  //   chassis.turnFor(180, 30, true);
-  //   if(checkIntersectionEvent(darkThreshold)){
-  //     handleIntersection();
-  //   }
-  //   start = false;
-  // } else {  // DONT TURN 180
-  //   if(checkIntersectionEvent(darkThreshold)){
-  //     handleIntersection();
-  //   }
-  // }
+int deliverTo(String location, int intersection_count, bool done_delivering, bool packet_detected) {
+  Serial.print("Location: ");Serial.print(location);Serial.print("\t");
+  Serial.print("Intersection count: ");Serial.print(intersection_count); Serial.print("\t"); 
+  Serial.print("Packet Detected: ");Serial.print(packet_detected); Serial.print("\t"); 
+  Serial.print("Done Deliver: ");Serial.println(done_delivering);
+
 
   // ALL LOCATIONS
-  if(location == "sunlandpark" && intersection_count == 2 &&  packet_detected){
-    Serial.print("Arrived to sunland park");
-    robotState = ROBOT_PICKUP;
+  if(location == "sunlandpark"){
+    while(intersection_count != 4){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.driveFor(5, 10, true);
+    dropPackage(floor_level);  
+    chassis.turnFor(185, 30, true);
     intersection_count = 0;
-    start = false;  
-  }
-    // GO back to warehouse
-    // if(!start){
-    //   chassis.turnFor(180, 30, true);
-    //   if(intersection_count == 3){
-    //     robotState = ROBOT_DROP;
-    //     intersection_count = 0;
-    //   } 
-    //   start = true;
-    // }
-  
-  // else chassis.idle();
 
-  
+    // Going back to starting point
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    goWarehouse();
+    return deliveries += 1;
+  }
+  else if(location == "airport"){
+    chassis.turnFor(90, 30, true);
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(95, 30, true);
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.driveFor(5, 10, true);
+    dropPackage(floor_level);  
+    chassis.turnFor(185, 30, true);
+    intersection_count = 0;
+
+    // Going back to starting point
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(-95, 30, true);
+    while(intersection_count != 2){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(-95, 30, true);
+    goWarehouse();
+    return deliveries += 1;   
+  }
+  else if(location == "utep"){
+    chassis.turnFor(-95, 30, true);
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.driveFor(5, 10, true);
+    dropPackage(floor_level);  
+    chassis.turnFor(185, 30, true);
+
+    //Going back to starting point
+    intersection_count = 0;
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(95, 30, true);  
+    goWarehouse();
+    return deliveries += 1;
+  }
+  else if(location == "executive"){
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(-95, 30, true);
+    chassis.driveFor(10, 10, true);
+    dropPackage(floor_level);
+    intersection_count = 0;
+
+    // GO back
+    chassis.turnFor(185, 30, true);
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    chassis.turnFor(95, 30, true);
+    intersection_count = 0;
+
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+    goWarehouse();
+  }
+  else if(location == "country-club"){
+    while(intersection_count != 1){
+      PID_control();
+      if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+      }
+    }
+  }
+    
+  return 0;
 }
 
 void beep(boolean input) {
@@ -162,8 +278,8 @@ bool detectPackage() {
 
 }
 
-void pickupPackage(){
-  Serial.print("Picking up...");
+void pickupPackage() {
+  Serial.println("Picking up...");
   servo.writeMicroseconds(SERVO_DOWN);
   
   //Picking up slowly
@@ -174,11 +290,21 @@ void pickupPackage(){
   
 }
 
-void dropPackage(){
+void dropPackage(int floor_level) {
   Serial.print("Dropping packet...");
+
+  int servo_adjust = SERVO_DOWN;
+
+  if (floor_level == 3) {
+    servo_adjust +=  800;
+  } else if (floor_level == 2) {
+    servo_adjust +=  500;
+  } else {// floor level
+    servo_adjust = SERVO_DOWN;
+  }
   
   //Dropping slowly
-  for (int slow = SERVO_UP; slow >= SERVO_DOWN; slow -= 50){
+  for (int slow = SERVO_UP; slow >= servo_adjust; slow -= 25){
     delay(50);
     servo.writeMicroseconds(slow); 
   }
@@ -306,6 +432,7 @@ void forward_movement(int speedA, int speedB) {
 }
 
 void PID_control(){  
+  //beep(true);
   uint16_t positionLine = qtr.readLineBlack(sensorValues);
   int error = (2000 - positionLine); 
 
@@ -331,30 +458,30 @@ void PID_control(){
   if(motorSpeedB < 0){
     motorSpeedB = 0;
   }
-  Serial.print("MotorSpeedA: ");
-  Serial.print(motorSpeedA);
-  Serial.print("\tMotorSpeedB: ");
-  Serial.print(motorSpeedB);
+  // Serial.print("MotorSpeedA: ");
+  // Serial.print(motorSpeedA);
+  // Serial.print("\tMotorSpeedB: ");
+  // Serial.print(motorSpeedB);
 
-  Serial.print("A0: ");
-  Serial.print(sensorValues[0]);
-  Serial.print("  A1: ");
-  Serial.print(sensorValues[1]);
-  Serial.print("  A2: ");
-  Serial.print(sensorValues[2]);
-  Serial.print("  A3: ");
-  Serial.print(sensorValues[3]);
-  Serial.print("  A4: ");
-  Serial.print(sensorValues[4]);
-  // Serial.print("  A5: ");
-  // Serial.print(sensorValues[5]);
-  Serial.print("  Position: ");
-  Serial.print(qtr.readLineBlack(sensorValues));
+  // Serial.print("A0: ");
+  // Serial.print(sensorValues[0]);
+  // Serial.print("  A1: ");
+  // Serial.print(sensorValues[1]);
+  // Serial.print("  A2: ");
+  // Serial.print(sensorValues[2]);
+  // Serial.print("  A3: ");
+  // Serial.print(sensorValues[3]);
+  // Serial.print("  A4: ");
+  // Serial.print(sensorValues[4]);
+  // // Serial.print("  A5: ");
+  // // Serial.print(sensorValues[5]);
+  // Serial.print("  Position: ");
+  // Serial.print(qtr.readLineBlack(sensorValues));
 
-  Serial.print(" Error: ");
-  Serial.print(error);
-  Serial.print(" Speed Change: ");
-  Serial.println(motorSpeedChange);
+  // Serial.print(" Error: ");
+  // Serial.print(error);
+  // Serial.print(" Speed Change: ");
+  // Serial.println(motorSpeedChange);
 
   forward_movement(motorSpeedA, motorSpeedB); 
 
@@ -578,7 +705,13 @@ void handleKeyPress(int16_t keyPress){
       if(keyPress == SETUP_BTN) beginLineFollowing();
       if(keyPress == REWIND) debug();
       if(keyPress == PLAY_PAUSE) QTR_init();
-      if(keyPress == NUM_0_10 ) robotState = ROBOT_DELIVERY;
+      if(keyPress == NUM_0_10 ) goWarehouse();
+      if(keyPress == NUM_4) {
+        servo.writeMicroseconds(SERVO_UP); 
+        dropPackage(3);
+      }
+      if(keyPress == NUM_5) servo.writeMicroseconds(SERVO_DOWN); 
+      if(keyPress == NUM_6) pickupPackage(); 
       // if(keyPress == NUM_1){
       //   robotState = ROBOT_BAGGING; Serial.print("Start ROBOT BAGGING");
       // }
@@ -608,13 +741,34 @@ void handleIntersection(void){
   robotState = ROBOT_IDLE;
 }
 
+void goWarehouse(){
+  while(!packet_detected){
+    PID_control();
+    if(detectPackage()){
+      packet_detected = true;
+      Serial.println("Object Detected");
+    }
+  }
+  chassis.idle();
+  pickupPackage();
+  chassis.turnFor(185, 40, true);
+
+  // Go to starting point
+  while(intersection_count != 2){
+    PID_control();
+    if(checkIntersectionEvent(darkThreshold)){
+        Serial.println("Intersection Detected");
+        intersection_count++;
+    }
+  }
+  intersection_count = 0;
+  robotState = ROBOT_DELIVERY;
+}
 
 void loop()
 {
   int16_t keyPress = decoder.getKeyCode();
-  String delivery_location = "";
-  bool packet_detected = false;
-  bool delivering = false; 
+  String delivery_location1, delivery_location2, delivery_location3;
 
   if (keyPress >= 0){
    Serial.println("Key pressed:" + String(keyPress));
@@ -647,7 +801,6 @@ void loop()
         idle();
         Serial.print("Idle key pressed");
       }
-
       if (chassis.checkMotionComplete())
           handleMotionComplete();
       break;
@@ -662,31 +815,66 @@ void loop()
       findLine(baseSpeed);
       break;
 
-  case ROBOT_BAGGING:
-    //Line Follow until package is detected
-    PID_control();
-    //handleLineFollow(baseSpeed);
+  case ROBOT_WAREHOUSE:
 
-    if (detectPackage() == true){
-      Serial.print("Package detected!");
-      chassis.driveFor(5, 10, true);
-      robotState = ROBOT_PICKUP;
 
-      //Change State to delivery mode
-      //robotState = ROBOT_DELIVERY;
-
+    while(intersection_count != 1 && !packet_detected){
+        PID_control();
+        if(checkIntersectionEvent(darkThreshold)){
+            Serial.println("Intersection Detected");
+            intersection_count++;
+        }
     }
+    pickupPackage();
+
+
+    // //Line Follow
+    // PID_control();
+
+    // // Detecting Intersections
+    // if(checkIntersectionEvent(darkThreshold)){
+    //   Serial.println("Intersection Detected");
+    //   intersection_count++;
+    // } 
+
+    // if(detectPackage()){
+    //   packet_detected = true;
+    //   Serial.println("Object Detected");
+    //   //beep(true);
+    //   //handle alternative route
+    // }
+
+    // Serial.println("Going to warehouse");
+    // if(intersection_count == 1 && packet_detected){
+    //   beep(true);
+    //   // chassis.driveFor(5, 10, true);
+    //   pickupPackage();
+    //   chassis.turnFor(185, 30, false);
+
+    //   while(intersection_count != 3){
+    //     PID_control();
+    //     if(checkIntersectionEvent(darkThreshold)){
+    //       Serial.println("Intersection Detected");
+    //       intersection_count++;
+    //     }
+    //   }
+    //   intersection_count = 0;
+    //   robotState = ROBOT_DELIVERY;
+    // }
     break;
   
   case ROBOT_DELIVERY:
     // State that indicates robot is ON delivery mode.
-    Serial.print("Delivery Mode");
+    Serial.println("Delivery Mode");
 
     //Line follow
     PID_control();
 
     // Detecting Intersections
-    if(checkIntersectionEvent(darkThreshold)) intersection_count++;
+    if(checkIntersectionEvent(darkThreshold)){
+      Serial.println("Intersection Detected");
+      intersection_count++;
+    } 
 
     if(detectPackage()){
       packet_detected = true;
@@ -696,51 +884,98 @@ void loop()
     }
 
 
-
-    //Function that detects traffic and obstacles along the way
-
-    //Function that drops package at delivery location
+    delivery_location1 = "sunlandpark";
+    delivery_location2 = "airport";
+    delivery_location3 = "utep";
+  
+    if(deliveries == 0){
+      deliverTo(delivery_location1, intersection_count, done_delivering, packet_detected);
+    } 
+    else if(deliveries == 1){
+      deliverTo(delivery_location2, intersection_count, done_delivering, packet_detected);
+    }
+    else if (deliveries == 2){
+      deliverTo(delivery_location3, intersection_count, done_delivering, packet_detected);
+      Serial.print(" ALL Delivery Complete!");
+    }
+        
 
     break;
   case ROBOT_PICKUP:
     // State to pick up package
-    delivering = false;
+    intersection_count = 0;
+    packet_detected = false;
+    start = false; 
+    done_delivering = false;
+
     chassis.driveFor(5, 10, true);
-    pickupPackage();
-    chassis.turnFor(180, 30, true);
+    pickupPackage();  
+    chassis.turnFor(185, 30, true);
     robotState = ROBOT_DELIVERY;
     break;
-  // case ROBOT_DEBUG:
-  //   debug();
-  //   break;
-  // case ROBOT_IDLE:
-  //   break;
+  
+  case ROBOT_DROP:
+    // State to drop package
+    intersection_count = 0;
+    packet_detected = false;
+    done_delivering = true;
+
+    chassis.driveFor(5, 10, true);
+    dropPackage(floor_level);
+    chassis.turnFor(185, 40, true);
+    robotState = ROBOT_DELIVERY;
+
+    break;
 
   case ROBOT_WAIT:
-      // Wait for user to select delivery location
-    if(keyPress == NUM_1){
-      delivery_location = "warehouse";
-      deliverTo(delivery_location, intersection_count, start, packet_detected);
-      Serial.println("Delivery Location set to Warehouse");
-    }
-    if(keyPress == NUM_3){
-      delivery_location = "sunlandpark";
-      deliverTo(delivery_location, intersection_count, start, packet_detected);
-      Serial.println("Delivery Location set to Sunland Park");
-    }
 
-    robotState = ROBOT_DELIVERY;
-    // else {
-    //   // deliverTo("wait", intersection_count, start, packet_detected);
-    //   Serial.println("Waiting for delivery location selection...");
+    //Line follow
+    chassis.idle();
+    
+
+
+
+    // // Reset flags
+    // intersection_count = 0;
+    // packet_detected = false;
+    // done_delivering = true;
+
+    
+
+    // // Wait for user to select delivery location
+    // if(keyPress == NUM_1){
+    //   delivery_location = "warehouse";
+    //   Serial.println("Delivery Location set to Warehouse");
     // }
     // else if(keyPress == NUM_2){
-    //     deliveryLocation = LOCATION_2;
-    //     Serial.println("Delivery Location set to Location 2");
+    //   delivery_location = "warehouse-utep";
+    //   Serial.println("Delivery Location set to Warehouse to UTEP");
     // }
     // else if(keyPress == NUM_3){
-    //     deliveryLocation = LOCATION_3;
-    //     Serial.println("Delivery Location set to Location 3");
+    //   delivery_location = "sunlandpark";
+    //   Serial.println("Delivery Location set to Sunland Park");
+    // }
+    // else Serial.println("Waiting for user input");
+
+    // // Which level to deliver
+    // if(keyPress == NUM_9){
+    //   // Delivery altitude to floor 3
+    //   floor_level = 3;
+    //   done_delivering = false;
+    //   robotState = ROBOT_DELIVERY;
+    // }
+    // if(keyPress == NUM_8){
+    //   //Delivery altitude floor 2
+    //   floor_level = 2;
+    //   done_delivering = false;
+    //   robotState = ROBOT_DELIVERY;
+    // }
+    // if(keyPress == NUM_7){
+    //   // Deliver to floor level
+    //   floor_level = 1;
+    //   done_delivering = false;
+    //   // Serial.print("Done Deliver WAIT: ");Serial.println(done_delivering);
+    //   robotState = ROBOT_DELIVERY;
     // }
 
    break;
